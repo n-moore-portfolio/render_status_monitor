@@ -4,6 +4,7 @@ import hashlib
 import smtplib
 from email.mime.text import MIMEText
 import os
+import unicodedata # Added for Unicode normalization
 
 URL = "https://immi.homeaffairs.gov.au/what-we-do/whm-program/status-of-country-caps"
 HASH_FILE = "last_hash.txt"
@@ -14,7 +15,6 @@ def get_spain_status():
     soup = BeautifulSoup(response.text, 'html.parser')
     
     # Find the table data cell that contains "Spain"
-    # Using 'string' instead of 'text' for more reliable matching
     spain_td = soup.find('td', string='Spain') 
     
     if not spain_td:
@@ -29,35 +29,53 @@ def get_spain_status():
         return None
 
     # Find the <span> element within this row that contains the status
-    # We look for a <span> with class 'label' and then get its text.
     status_span = spain_row.find('span', class_='label') 
     
     if status_span:
-        # Return the stripped text content of the span (e.g., "paused", "open")
-        return status_span.get_text(strip=True)
+        status_text = status_span.get_text(strip=True)
+        
+        # --- Aggressive Text Cleaning ---
+        # Normalize Unicode characters (e.g., NFKC form)
+        status_text = unicodedata.normalize("NFKC", status_text)
+        
+        # Remove zero-width spaces if they are present (common issue from web scraping)
+        status_text = status_text.replace('\u200b', '') 
+        
+        # Normalize all whitespace to single spaces and strip leading/trailing
+        status_text = " ".join(status_text.split()) 
+        # --- End Aggressive Text Cleaning ---
+
+        print(f"Extracted and cleaned status text: '{status_text}' (repr: {repr(status_text)})")
+        return status_text
     else:
         print("Could not find status <span> within Spain row.")
-        return None # No status span found within the row
+        return None
 
 def get_current_hash(content):
-    return hashlib.md5(content.encode('utf-8')).hexdigest()
+    current_hash_value = hashlib.md5(content.encode('utf-8')).hexdigest()
+    print(f"Calculated current hash: '{current_hash_value}'")
+    return current_hash_value
 
 def load_previous_hash():
     if not os.path.exists(HASH_FILE):
+        print(f"Hash file '{HASH_FILE}' does not exist. Returning None.")
         return None
     try:
         with open(HASH_FILE, "r") as f:
-            return f.read().strip()
+            prev_hash = f.read().strip()
+            print(f"Loaded previous hash: '{prev_hash}'")
+            return prev_hash
     except Exception as e:
-        print(f"Error loading previous hash: {e}")
+        print(f"Error loading previous hash from '{HASH_FILE}': {e}")
         return None
 
 def save_hash(hash_value):
     try:
         with open(HASH_FILE, "w") as f:
             f.write(hash_value)
+            print(f"Saved current hash '{hash_value}' to '{HASH_FILE}'.")
     except Exception as e:
-        print(f"Error saving hash: {e}")
+        print(f"Error saving hash to '{HASH_FILE}': {e}")
 
 def send_email(current_status_text):
     sender_email = os.environ.get('EMAIL_FROM')
@@ -65,7 +83,7 @@ def send_email(current_status_text):
     recipient_email = os.environ.get('EMAIL_TO')
 
     if not all([sender_email, sender_password, recipient_email]):
-        print("Email environment variables not set. Cannot send email.")
+        print("Email environment variables (EMAIL_FROM, EMAIL_PASSWORD, EMAIL_TO) not set. Cannot send email.")
         return
 
     email_body = f"Spain's Working Holiday visa status has changed!\n\nNew Status: {current_status_text}\n\nURL: {URL}"
@@ -82,8 +100,11 @@ def send_email(current_status_text):
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
+        # Optionally, you might want to re-raise the exception or handle it differently
+        # if email sending failures are critical.
 
 def main():
+    print("--- Starting Spain Visa Status Monitor ---")
     content = get_spain_status()
     if content is None:
         print("Could not retrieve Spain's status content. Exiting.")
@@ -93,11 +114,13 @@ def main():
     previous_hash = load_previous_hash()
 
     if current_hash != previous_hash:
-        print(f"Change detected! New status: {content}")
+        print(f"Change detected! Previous hash: '{previous_hash}', Current hash: '{current_hash}'")
+        print(f"New status: '{content}'")
         send_email(content)
         save_hash(current_hash)
     else:
-        print(f"No change. Current status: {content}")
+        print(f"No change. Hash: '{current_hash}'. Current status: '{content}'")
+    print("--- Monitor Run Complete ---")
 
 if __name__ == "__main__":
     main()
