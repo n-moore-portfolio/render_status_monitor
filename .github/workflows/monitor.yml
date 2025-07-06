@@ -1,0 +1,29 @@
+name: Monitor Spain Status
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # every 15 minutes UTC
+  workflow_dispatch:        # allows manual runs too
+
+jobs:
+  run-monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11  # adjust if needed
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the monitor script
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: python monitor_spain.py
