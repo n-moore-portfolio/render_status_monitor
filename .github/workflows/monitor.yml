@@ -19,6 +19,7 @@ jobs:
       with:
         name: last-hash-file
         path: .
+      continue-on-error: true
 
     - name: Set up Python
       uses: actions/setup-python@v5
