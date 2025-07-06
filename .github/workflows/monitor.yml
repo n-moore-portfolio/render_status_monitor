@@ -2,29 +2,30 @@ name: Monitor Spain Visa Status
 
 on:
   schedule:
-    # Runs every 15 minutes
-    - cron: '*/15 * * * *'
+    - cron: '*/15 * * * *' # Runs every 15 minutes
   workflow_dispatch: # Allows manual trigger for testing
 
 jobs:
   monitor:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Or your chosen runner OS
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Step 1: Download previous hash artifact
+    # Step 1: Download the previously uploaded last_hash.txt artifact
+    # This step will try to download the artifact. If it doesn't exist (e.g., first run),
+    # it will simply report "Artifact not found" and proceed without error.
     - name: Download last_hash.txt (if exists)
       uses: actions/download-artifact@v4
       with:
-        name: last-hash-file # Name of the artifact
-        path: . # Download to the current directory
+        name: last-hash-file # A unique name for your artifact
+        path: . # Download it to the root of your repository (where monitor_spain.py is)
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.x' # Use your desired Python version
+        python-version: '3.x' # Use your specific Python version, e.g., '3.9'
 
     - name: Install dependencies
       run: |
@@ -38,10 +39,12 @@ jobs:
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
-    # Step 2: Upload the updated hash artifact
+    # Step 2: Upload the updated last_hash.txt artifact
+    # This step will take the last_hash.txt created/updated by your Python script
+    # and save it as an artifact, making it available for the next job run.
     - name: Upload last_hash.txt
       uses: actions/upload-artifact@v4
       with:
-        name: last-hash-file # Must match the download name
-        path: last_hash.txt # Path to the file to upload
-        # Optional: retention-days: 1 # How long to keep the artifact (e.g., 1 day)
+        name: last-hash-file # Must be the same name as in the download step
+        path: last_hash.txt # The path to the file you want to upload
+        # Optional: retention-days: 1 # Uncomment to make artifacts expire after 1 day
