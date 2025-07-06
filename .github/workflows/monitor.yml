@@ -1,29 +1,47 @@
-name: Monitor Spain Status
+name: Monitor Spain Visa Status
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # every 15 minutes UTC
-  workflow_dispatch:        # allows manual runs too
+    # Runs every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Allows manual trigger for testing
 
 jobs:
-  run-monitor:
+  monitor:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11  # adjust if needed
+    # Step 1: Download previous hash artifact
+    - name: Download last_hash.txt (if exists)
+      uses: actions/download-artifact@v4
+      with:
+        name: last-hash-file # Name of the artifact
+        path: . # Download to the current directory
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x' # Use your desired Python version
 
-      - name: Run the monitor script
-        env:
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-        run: python monitor_spain.py
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run status monitor
+      run: python monitor_spain.py
+      env:
+        EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        EMAIL_TO: ${{ secrets.EMAIL_TO }}
+
+    # Step 2: Upload the updated hash artifact
+    - name: Upload last_hash.txt
+      uses: actions/upload-artifact@v4
+      with:
+        name: last-hash-file # Must match the download name
+        path: last_hash.txt # Path to the file to upload
+        # Optional: retention-days: 1 # How long to keep the artifact (e.g., 1 day)
