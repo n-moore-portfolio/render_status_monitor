@@ -7,25 +7,23 @@ on:
 
 jobs:
   monitor:
-    runs-on: ubuntu-latest # Or your chosen runner OS
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Step 1: Download the previously uploaded last_hash.txt artifact
-    # This step will try to download the artifact. If it doesn't exist (e.g., first run),
-    # it will simply report "Artifact not found" and proceed without error.
+    # Step 1: Download previous hash artifact
     - name: Download last_hash.txt (if exists)
       uses: actions/download-artifact@v4
       with:
-        name: last-hash-file # A unique name for your artifact
-        path: . # Download it to the root of your repository (where monitor_spain.py is)
+        name: last-hash-file
+        path: .
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.x' # Use your specific Python version, e.g., '3.9'
+        python-version: '3.x'
 
     - name: Install dependencies
       run: |
@@ -33,18 +31,26 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run status monitor
+      # Use `continue-on-error: true` if you want the upload to happen
+      # even if the Python script itself encounters a non-fatal error,
+      # but still want to see the error in the logs.
+      # However, for a change detection script, a script error might mean
+      # you don't have a valid hash to save.
+      # So, it's often better to let the script fail and fix it,
+      # rather than save a potentially bad hash.
       run: python monitor_spain.py
       env:
         EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
-    # Step 2: Upload the updated last_hash.txt artifact
-    # This step will take the last_hash.txt created/updated by your Python script
-    # and save it as an artifact, making it available for the next job run.
+    # Step 2: Upload the updated hash artifact
+    # Use if: always() to ensure this step runs even if a previous step failed.
+    # This is critical for persistence if the Python script itself might fail
+    # but you still want the (potentially partial) hash to be saved.
     - name: Upload last_hash.txt
       uses: actions/upload-artifact@v4
+      if: always() # <--- Add this line
       with:
-        name: last-hash-file # Must be the same name as in the download step
-        path: last_hash.txt # The path to the file you want to upload
-        # Optional: retention-days: 1 # Uncomment to make artifacts expire after 1 day
+        name: last-hash-file
+        path: last_hash.txt
