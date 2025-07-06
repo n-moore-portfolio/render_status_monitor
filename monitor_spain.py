@@ -4,7 +4,7 @@ import hashlib
 import smtplib
 from email.mime.text import MIMEText
 import os
-import unicodedata # Added for Unicode normalization
+import unicodedata 
 
 URL = "https://immi.homeaffairs.gov.au/what-we-do/whm-program/status-of-country-caps"
 HASH_FILE = "last_hash.txt"
@@ -35,13 +35,8 @@ def get_spain_status():
         status_text = status_span.get_text(strip=True)
         
         # --- Aggressive Text Cleaning ---
-        # Normalize Unicode characters (e.g., NFKC form)
         status_text = unicodedata.normalize("NFKC", status_text)
-        
-        # Remove zero-width spaces if they are present (common issue from web scraping)
         status_text = status_text.replace('\u200b', '') 
-        
-        # Normalize all whitespace to single spaces and strip leading/trailing
         status_text = " ".join(status_text.split()) 
         # --- End Aggressive Text Cleaning ---
 
@@ -100,8 +95,6 @@ def send_email(current_status_text):
         print("Email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
-        # Optionally, you might want to re-raise the exception or handle it differently
-        # if email sending failures are critical.
 
 def main():
     print("--- Starting Spain Visa Status Monitor ---")
@@ -113,7 +106,13 @@ def main():
     current_hash = get_current_hash(content)
     previous_hash = load_previous_hash()
 
-    if current_hash != previous_hash:
+    if previous_hash is None:
+        # This is the first run or the file was deleted.
+        # Save the current hash but DO NOT send an email.
+        print("Previous hash file not found. Initializing with current status.")
+        save_hash(current_hash)
+        print("Initialized hash file. No change detected for the first run.")
+    elif current_hash != previous_hash:
         print(f"Change detected! Previous hash: '{previous_hash}', Current hash: '{current_hash}'")
         print(f"New status: '{content}'")
         send_email(content)
