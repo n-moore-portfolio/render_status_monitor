@@ -4,42 +4,32 @@ import hashlib
 import smtplib
 from email.mime.text import MIMEText
 import os
-import unicodedata 
+import unicodedata
 
 URL = "https://immi.homeaffairs.gov.au/what-we-do/whm-program/status-of-country-caps"
 HASH_FILE = "last_hash.txt"
 
 def get_spain_status():
     response = requests.get(URL)
-    response.raise_for_status() # Raise an exception for HTTP errors
+    response.raise_for_status()
     soup = BeautifulSoup(response.text, 'html.parser')
     
-    # Find the table data cell that contains "Spain"
-    spain_td = soup.find('td', string='Spain') 
-    
+    spain_td = soup.find('td', string='Spain')
     if not spain_td:
         print("Could not find 'Spain' table data cell.")
         return None
 
-    # Find the parent row of the "Spain" cell
     spain_row = spain_td.find_parent('tr')
-    
     if not spain_row:
         print("Could not find parent row for 'Spain' cell.")
         return None
 
-    # Find the <span> element within this row that contains the status
-    status_span = spain_row.find('span', class_='label') 
-    
+    status_span = spain_row.find('span', class_='label')
     if status_span:
         status_text = status_span.get_text(strip=True)
-        
-        # --- Aggressive Text Cleaning ---
         status_text = unicodedata.normalize("NFKC", status_text)
-        status_text = status_text.replace('\u200b', '') 
-        status_text = " ".join(status_text.split()) 
-        # --- End Aggressive Text Cleaning ---
-
+        status_text = status_text.replace('\u200b', '')
+        status_text = " ".join(status_text.split())
         print(f"Extracted and cleaned status text: '{status_text}' (repr: {repr(status_text)})")
         return status_text
     else:
@@ -78,7 +68,7 @@ def send_email(current_status_text):
     recipient_email = os.environ.get('EMAIL_TO')
 
     if not all([sender_email, sender_password, recipient_email]):
-        print("Email environment variables (EMAIL_FROM, EMAIL_PASSWORD, EMAIL_TO) not set. Cannot send email.")
+        print("Email environment variables not set. Cannot send email.")
         return
 
     email_body = f"Spain's Working Holiday visa status has changed!\n\nNew Status: {current_status_text}\n\nURL: {URL}"
@@ -107,8 +97,6 @@ def main():
     previous_hash = load_previous_hash()
 
     if previous_hash is None:
-        # This is the first run or the file was deleted.
-        # Save the current hash but DO NOT send an email.
         print("Previous hash file not found. Initializing with current status.")
         save_hash(current_hash)
         print("Initialized hash file. No change detected for the first run.")
