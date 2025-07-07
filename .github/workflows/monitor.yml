@@ -13,30 +13,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Step 1: Download previous hash artifact
-    - name: Download last_hash.txt (if exists)
-      uses: actions/download-artifact@v4
-      with:
-        name: last-hash-file
-        path: .
-        fail-on-unmatched-files: false # Crucial for first run/missing artifact tolerance
-
-    # --- DEBUGGING STEP START ---
-    - name: Verify last_hash.txt after download
-      run: |
-        echo "Current working directory:"
-        pwd
-        echo "Listing files in current directory (including hidden files):"
-        ls -la
-        if [ -f last_hash.txt ]; then
-          echo "SUCCESS: last_hash.txt FOUND after download step!"
-          echo "Content of last_hash.txt:"
-          cat last_hash.txt
-        else
-          echo "WARNING: last_hash.txt NOT FOUND after download step."
-        fi
-    # --- DEBUGGING STEP END ---
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -54,9 +30,13 @@ jobs:
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
-    - name: Upload last_hash.txt
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: last-hash-file
-        path: last_hash.txt
+    - name: Commit and push updated hash
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git pull
+        git add last_hash.txt
+        git diff --cached --quiet || git commit -m "Update last_hash.txt"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
