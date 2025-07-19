@@ -65,24 +65,27 @@ def save_hash(hash_value):
 def send_email(current_status_text):
     sender_email = os.environ.get('EMAIL_FROM')
     sender_password = os.environ.get('EMAIL_PASSWORD')
-    recipient_email = os.environ.get('EMAIL_TO')
+    recipient_emails = os.environ.get('EMAIL_TO')
 
-    if not all([sender_email, sender_password, recipient_email]):
+    if not all([sender_email, sender_password, recipient_emails]):
         print("Email environment variables not set. Cannot send email.")
         return
+
+    # Allow multiple recipients separated by commas
+    recipients = [email.strip() for email in recipient_emails.split(',')]
 
     email_body = f"Spain's Working Holiday visa status has changed!\n\nNew Status: {current_status_text}\n\nURL: {URL}"
     msg = MIMEText(email_body)
     msg['Subject'] = f"Visa Status Alert: Spain - {current_status_text}"
     msg['From'] = sender_email
-    msg['To'] = recipient_email
+    msg['To'] = ", ".join(recipients)  # Visible in the email header
 
     try:
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login(sender_email, sender_password)
-        server.send_message(msg)
+        server.sendmail(sender_email, recipients, msg.as_string())
         server.quit()
-        print("Email sent successfully.")
+        print(f"Email sent successfully to: {', '.join(recipients)}")
     except Exception as e:
         print(f"Failed to send email: {e}")
 
